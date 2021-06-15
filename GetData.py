@@ -1,5 +1,6 @@
 import pandas as pd 
 from datetime import datetime as dt 
+from datetime import timedelta
 # pybaseball package
 from pybaseball import statcast
 from pybaseball import statcast_pitcher
@@ -25,73 +26,82 @@ from baseball_scraper import espn
     # https://pypi.org/project/vigorish/
 # Useful source to compare packages:
     # https://snyk.io/advisor/python
-    
 
 
-############## Statcast data ##############
-data = statcast(start_dt='2021-04-01', end_dt='2021-04-02', team='SEA')
-data.loc[data.game_date == '2021-04-01',:]
-data.head()
+# set export path
+path = r'C:\Users\JH\Documents\git\Baseball\Statcast\DataFiles'
 
-############## Team Crosswalk #############
-team_cross = teams()
-team_cross = team_ids()
-
-############# Player Crosswalk ############
-player = playerid_lookup('Sheffield', 'Justus')
-
-############## Date Range #################
-dt_lst = pd.date_range(start='2021-04-01', end='2021-05-31', freq='D')
+# Create date range for function calls
+dt_lst = pd.date_range(start='2021-04-01', end='2021-06-12', freq='D')
 dt_range = []
 for i in dt_lst:
   dt_range.append(i.strftime('%Y-%m-%d'))
 
 
-############### Pitcher Profile ##############
-# Game by Game
-# TODO remove data.GS filter if want to look at all pitchers ; for now just looking at starters
+# Statcast data
+game_data = statcast(start_dt='2021-04-01', end_dt='2021-06-12', team='SEA')
+
+# Team Crosswalk
+team_history = teams()
+team_fact    = team_ids()
+
+# Pitching profile 
+# Adjust data.GS == 1 to go beyond starting pitchers
 table_lst = []
 for x in dt_range:
     data  = pitching_stats_range(start_dt=x, end_dt=x)
     data = data.loc[data.GS == 1,:]
     table_lst.append(data)
 
-pitching = pd.concat(table_lst)
+pitching_history = pd.concat(table_lst)
 
 
-# Probable pitchers for upcoming games
-# TODO build out a future frame and do incremental loads based on dynamic date ranges 
-fut_pitchers = espn.ProbableStartersScraper(dt(2021,6,2), dt(2021,6,2)).scrape()
-fut_pitchers[['First','Last']] = fut_pitchers.Name.str.split(expand=True)
-# TODO match to home team - down sampling to mariners for time being to get main up and running
-fut_pitchers = fut_pitchers.loc[fut_pitchers.Name.str.contains('Flexen'),:]
-
-
-
-# Season stats ~ averages
-# Get Pitcher profile per starter 
-# TODO figure out how to impliment functions instead of all these loops
-# def player_lookup(first, last):
-#    foo = x.split(" ",2)
-#     player = playerid_lookup(last, first)
-#     return player_lookup
-
+# Pitcher fact 
 table_lst = []
-for x in fut_pitchers.Name:
-    data  = pitching_stats_range(start_dt=x, end_dt=x)
-    table_lst.append(data)
+for x in pitching_history.Name:
+    First, Last = x.split(sep=" ", maxsplit=1)
+    foo = playerid_lookup(Last, First)
+    table_lst.append(foo)
 
-tmp = pd.concat(table_lst)
+player_fact = pd.concat(table_lst)
+
+
+# Future pitchers
+# TODO build out a future frame and do incremental loads based on dynamic date ranges dt.today()
+fut_pitchers = espn.ProbableStartersScraper(dt.today() + timedelta(1), dt.today() + timedelta(1)).scrape()
+
+
+# Exports
+game_data       .to_excel(path+'\\game_data.xlsx')
+team_history    .to_excel(path+'\\team_history.xlsx')
+team_fact       .to_excel(path+'\\team_fact.xlsx')
+pitching_history.to_excel(path+'\\pitching_history.xlsx')
+player_fact     .to_excel(path+'\\player_fact.xlsx')
+fut_pitchers    .to_excel(path+'\\fut_pitchers.xlsx')
 
 
 
-# Main Table 
-table_lst = []
-for x in [2021]:
-    data = schedule_and_record(season=x, team='SEA')
-    data.loc[:,'year'] = x
-    table_lst.append(data)
 
-main_sea = pd.concat(table_lst)
+ 
+
+
+# TODO determine flow of frames above and build out a 'main' frame
+# Get Pitcher profile per expected starter 
+## table_lst = []
+## for x in fut_pitchers.Name:
+##     data  = pitching_stats_range(start_dt=x, end_dt=x)
+##     table_lst.append(data)
+## 
+## tmp = pd.concat(table_lst)
+## 
+## 
+## # Main Table 
+## table_lst = []
+## for x in [2021]:
+##     data = schedule_and_record(season=x, team='SEA')
+##     data.loc[:,'year'] = x
+##     table_lst.append(data)
+## 
+## main_sea = pd.concat(table_lst)
 
 
